@@ -18,7 +18,9 @@ import '@xyflow/react/dist/style.css'
 import {
   Bot,
   Download,
+  Edit3,
   FileQuestion,
+  FolderKanban,
   Lightbulb,
   Link2,
   Plus,
@@ -29,7 +31,16 @@ import {
   Upload,
 } from 'lucide-react'
 import './App.css'
-import { clearSavedBoard, loadBoard, saveBoard } from './lib/boardDb'
+import {
+  clearSavedBoard,
+  createProject,
+  deleteProject,
+  loadBoard,
+  loadProjects,
+  renameProject,
+  saveBoard,
+  type SavedProject,
+} from './lib/boardDb'
 
 type IdeaKind = 'idea' | 'question' | 'task'
 
@@ -129,12 +140,16 @@ function IdeaCard({ id, data, selected }: NodeProps<IdeaNode>) {
 }
 
 function App() {
+  const [projects, setProjects] = useState<SavedProject[]>([])
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
   const [nodes, setNodes] = useState<IdeaNode[]>(starterNodes)
   const [edges, setEdges] = useState<Edge[]>(starterEdges)
   const [query, setQuery] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>('seed-1')
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
-  const [loaded, setLoaded] = useState(false)
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
+  const [editingProjectName, setEditingProjectName] = useState('')
+  const [boardLoaded, setBoardLoaded] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const flowRef = useRef<ReactFlowInstance<IdeaNode, Edge> | null>(null)
 
@@ -146,6 +161,10 @@ function App() {
   const selectedEdge = useMemo(
     () => edges.find((edge) => edge.id === selectedEdgeId) ?? null,
     [edges, selectedEdgeId],
+  )
+  const activeProject = useMemo(
+    () => projects.find((project) => project.id === activeProjectId) ?? null,
+    [activeProjectId, projects],
   )
 
   const filteredNodes = useMemo(() => {
@@ -164,28 +183,48 @@ function App() {
   }, [nodes, query])
 
   useEffect(() => {
-    loadBoard().then((board) => {
-      if (board) {
-        setNodes(board.nodes as IdeaNode[])
-        setEdges(board.edges)
-        setSelectedId(board.nodes[0]?.id ?? null)
-        setSelectedEdgeId(null)
-      }
-      setLoaded(true)
+    loadProjects().then((savedProjects) => {
+      setProjects(savedProjects)
+      setActiveProjectId(savedProjects[0]?.id ?? null)
     })
   }, [])
 
   useEffect(() => {
-    if (!loaded) {
+    if (!activeProjectId) {
+      return
+    }
+
+    loadBoard(activeProjectId).then((board) => {
+      if (board) {
+        setNodes(board.nodes as IdeaNode[])
+        setEdges(board.edges)
+        setSelectedId(board.nodes[0]?.id ?? null)
+      } else {
+        setNodes(starterNodes)
+        setEdges(starterEdges)
+        setSelectedId('seed-1')
+      }
+      setSelectedEdgeId(null)
+      setBoardLoaded(true)
+    })
+  }, [activeProjectId])
+
+  useEffect(() => {
+    if (!boardLoaded || !activeProjectId) {
       return
     }
 
     const handle = window.setTimeout(() => {
-      saveBoard({ nodes, edges, updatedAt: Date.now() })
+      saveBoard(activeProjectId, { nodes, edges, updatedAt: Date.now() })
+      setProjects((current) =>
+        current.map((project) =>
+          project.id === activeProjectId ? { ...project, updatedAt: Date.now() } : project,
+        ),
+      )
     }, 350)
 
     return () => window.clearTimeout(handle)
-  }, [edges, loaded, nodes])
+  }, [activeProjectId, boardLoaded, edges, nodes])
 
   const onNodesChange = useCallback(
     (changes: Parameters<typeof applyNodeChanges<IdeaNode>>[0]) =>
@@ -250,6 +289,69 @@ function App() {
     [],
   )
 
+  const addProject = useCallback(async () => {
+    const project = await createProject(`Workflow ${projects.length + 1}`)
+    setBoardLoaded(false)
+    setProjects((current) => [project, ...current])
+    setActiveProjectId(project.id)
+  }, [projects.length])
+
+  const switchProject = useCallback((projectId: string) => {
+    setBoardLoaded(false)
+    setActiveProjectId(projectId)
+  }, [])
+
+  const removeProject = useCallback(
+    async (project: SavedProject) => {
+      const shouldDelete = window.confirm(`Delete "${project.name}" and its saved workflow?`)
+      if (!shouldDelete) {
+        return
+      }
+
+      setBoardLoaded(false)
+      await deleteProject(project.id)
+      const remainingProjects = await loadProjects()
+      setProjects(remainingProjects)
+
+      if (project.id === activeProjectId) {
+        setActiveProjectId(remainingProjects[0]?.id ?? null)
+      }
+    },
+    [activeProjectId],
+  )
+
+  const startRenamingProject = useCallback((project: SavedProject) => {
+    setEditingProjectId(project.id)
+    setEditingProjectName(project.name)
+  }, [])
+
+  const saveProjectName = useCallback(async () => {
+    if (!editingProjectId) {
+      return
+    }
+
+    const trimmedName = editingProjectName.trim()
+    if (!trimmedName) {
+      setEditingProjectId(null)
+      return
+    }
+
+    await renameProject(editingProjectId, trimmedName)
+    setProjects((current) =>
+      current.map((project) =>
+        project.id === editingProjectId
+          ? { ...project, name: trimmedName, updatedAt: Date.now() }
+          : project,
+      ),
+    )
+    setEditingProjectId(null)
+  }, [editingProjectId, editingProjectName])
+
+  const cancelProjectRename = useCallback(() => {
+    setEditingProjectId(null)
+    setEditingProjectName('')
+  }, [])
+
   const updateSelectedNode = useCallback(
     (patch: Partial<IdeaNodeData>) => {
       if (!selectedNode) {
@@ -306,12 +408,16 @@ function App() {
   }, [nodes])
 
   const resetBoard = useCallback(async () => {
-    await clearSavedBoard()
+    if (!activeProjectId) {
+      return
+    }
+
+    await clearSavedBoard(activeProjectId)
     setNodes(starterNodes)
     setEdges(starterEdges)
     setSelectedId('seed-1')
     setSelectedEdgeId(null)
-  }, [])
+  }, [activeProjectId])
 
   const exportBoard = useCallback(() => {
     const blob = new Blob([JSON.stringify({ nodes, edges }, null, 2)], {
@@ -351,6 +457,71 @@ function App() {
             <p>Local-first workflow canvas</p>
           </div>
         </div>
+
+        <section className="project-switcher" aria-label="Projects">
+          <div className="section-heading">
+            <span>Projects</span>
+            <button type="button" onClick={addProject} title="Create project">
+              <Plus size={14} />
+            </button>
+          </div>
+          <div className="project-list">
+            {projects.map((project) => (
+              <div
+                key={project.id}
+                className={`project-row ${project.id === activeProjectId ? 'is-active' : ''}`}
+              >
+                <button
+                  type="button"
+                  className="project-select"
+                  onClick={() => switchProject(project.id)}
+                >
+                  <FolderKanban size={15} />
+                  {editingProjectId === project.id ? (
+                    <input
+                      value={editingProjectName}
+                      onChange={(event) => setEditingProjectName(event.target.value)}
+                      onBlur={saveProjectName}
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          saveProjectName()
+                        }
+
+                        if (event.key === 'Escape') {
+                          event.preventDefault()
+                          cancelProjectRename()
+                        }
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <span>{project.name}</span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="project-rename"
+                  onClick={() => startRenamingProject(project)}
+                  title={`Rename ${project.name}`}
+                  aria-label={`Rename ${project.name}`}
+                >
+                  <Edit3 size={13} />
+                </button>
+                <button
+                  type="button"
+                  className="project-delete"
+                  onClick={() => removeProject(project)}
+                  title={`Delete ${project.name}`}
+                  aria-label={`Delete ${project.name}`}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
 
         <label className="search-box">
           <Search size={16} />
@@ -451,7 +622,7 @@ function App() {
           <Controls />
           <MiniMap nodeStrokeWidth={3} pannable zoomable />
           <Panel position="top-center" className="canvas-hint">
-            Drag nodes, connect handles, click a connection to delete it.
+            {activeProject?.name ?? 'Workflow'} saves its own nodes and connections.
           </Panel>
         </ReactFlow>
       </section>
