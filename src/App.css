@@ -177,48 +177,116 @@ button {
 }
 
 .canvas-wrap .react-flow {
-  background:
-    linear-gradient(90deg, rgba(32, 184, 154, 0.08), transparent 35%),
-    #111315;
+  background: #111315;
 }
 
-.react-flow__edge-path {
+.react-flow__edge-path,
+.react-flow__connection-path {
+  stroke: #9aa6a2;
+  stroke-width: 2;
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path,
+.react-flow__connection-path {
   stroke: #20b89a;
-  stroke-width: 2.5;
 }
 
-.react-flow__handle {
-  background: #20b89a;
-  border: 2px solid #0d1515;
-  height: 10px;
-  width: 10px;
+.react-flow__edge .react-flow__edge-path {
+  stroke-linecap: round;
+}
+
+.react-flow__handle.node-port {
+  border: 2px solid #111315;
+  height: 13px;
+  width: 13px;
+}
+
+.react-flow__handle.node-port--in {
+  left: -7px;
+}
+
+.react-flow__handle.node-port--out {
+  right: -7px;
+}
+
+.react-flow__handle.node-port:hover {
+  box-shadow: 0 0 0 6px rgba(32, 184, 154, 0.2);
 }
 
 .idea-node {
-  background: #202628;
-  border: 1px solid #374142;
   border-radius: 8px;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
   color: #f4faf7;
   min-width: 230px;
   padding: 14px;
+  position: relative;
 }
 
 .idea-node.is-selected {
-  border-color: #20b89a;
   box-shadow: 0 0 0 2px rgba(32, 184, 154, 0.2), 0 20px 42px rgba(0, 0, 0, 0.34);
 }
 
 .idea-node--question {
+  background: #2d2818;
+  border: 1px solid #5b4b22;
   border-top: 3px solid #f0c66f;
 }
 
+.idea-node--question.is-selected {
+  border-color: #f0c66f;
+  box-shadow: 0 0 0 2px rgba(240, 198, 111, 0.2), 0 20px 42px rgba(0, 0, 0, 0.34);
+}
+
+.idea-node--question .node-port {
+  background: #f0c66f;
+  box-shadow: 0 0 0 4px rgba(240, 198, 111, 0.12);
+}
+
+.idea-node--question .node-tags span {
+  background: #1c180d;
+  border-color: #55471f;
+}
+
 .idea-node--task {
+  background: #1b2433;
+  border: 1px solid #344968;
   border-top: 3px solid #7fb0ff;
 }
 
+.idea-node--task.is-selected {
+  border-color: #7fb0ff;
+  box-shadow: 0 0 0 2px rgba(127, 176, 255, 0.2), 0 20px 42px rgba(0, 0, 0, 0.34);
+}
+
+.idea-node--task .node-port {
+  background: #7fb0ff;
+  box-shadow: 0 0 0 4px rgba(127, 176, 255, 0.12);
+}
+
+.idea-node--task .node-tags span {
+  background: #111722;
+  border-color: #304461;
+}
+
 .idea-node--idea {
+  background: #162824;
+  border: 1px solid #25574e;
   border-top: 3px solid #20b89a;
+}
+
+.idea-node--idea.is-selected {
+  border-color: #20b89a;
+}
+
+.idea-node--idea .node-port {
+  background: #20b89a;
+  box-shadow: 0 0 0 4px rgba(32, 184, 154, 0.12);
+}
+
+.idea-node--idea .node-tags span {
+  background: #0f1a18;
+  border-color: #24544c;
 }
 
 .node-topline {
@@ -320,6 +388,36 @@ button {
   display: flex;
   gap: 10px;
   padding: 12px;
+}
+
+.connection-delete-callout {
+  align-items: flex-start;
+  background: #352122;
+  border: 1px solid #71363a;
+  border-radius: 8px;
+  color: #ffd6d8;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-start;
+  padding: 12px;
+  text-align: left;
+}
+
+.connection-delete-callout:hover {
+  background: #46282a;
+}
+
+.connection-delete-callout span {
+  display: grid;
+  font-size: 13px;
+  gap: 2px;
+  line-height: 1.45;
+}
+
+.connection-delete-callout strong {
+  color: #fff4f5;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .assistant-note p {

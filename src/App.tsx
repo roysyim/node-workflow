@@ -3,8 +3,10 @@ import {
   Background,
   BackgroundVariant,
   Controls,
+  Handle,
   MiniMap,
   Panel,
+  Position,
   ReactFlow,
   ReactFlowProvider,
   addEdge,
@@ -18,6 +20,7 @@ import {
   Download,
   FileQuestion,
   Lightbulb,
+  Link2,
   Plus,
   Search,
   Sparkles,
@@ -43,7 +46,7 @@ const starterNodes: IdeaNode[] = [
   {
     id: 'seed-1',
     type: 'idea',
-    position: { x: 90, y: 110 },
+    position: { x: 90, y: 180 },
     data: {
       title: 'Inbox',
       body: 'Drop raw thoughts here before shaping them.',
@@ -54,7 +57,7 @@ const starterNodes: IdeaNode[] = [
   {
     id: 'seed-2',
     type: 'idea',
-    position: { x: 470, y: 80 },
+    position: { x: 420, y: 180 },
     data: {
       title: 'Promising thread',
       body: 'Connect notes when one idea starts feeding another.',
@@ -65,7 +68,7 @@ const starterNodes: IdeaNode[] = [
   {
     id: 'seed-3',
     type: 'idea',
-    position: { x: 470, y: 300 },
+    position: { x: 750, y: 180 },
     data: {
       title: 'Open question',
       body: 'What would make this worth building next?',
@@ -81,15 +84,18 @@ const starterEdges: Edge[] = [
     source: 'seed-1',
     target: 'seed-2',
     type: 'smoothstep',
-    animated: true,
   },
   {
-    id: 'seed-1-seed-3',
-    source: 'seed-1',
+    id: 'seed-2-seed-3',
+    source: 'seed-2',
     target: 'seed-3',
     type: 'smoothstep',
   },
 ]
+
+const defaultEdgeOptions: Partial<Edge> = {
+  type: 'smoothstep',
+}
 
 const kindIcon = {
   idea: Lightbulb,
@@ -102,6 +108,8 @@ function IdeaCard({ id, data, selected }: NodeProps<IdeaNode>) {
 
   return (
     <article className={`idea-node idea-node--${data.kind} ${selected ? 'is-selected' : ''}`}>
+      <Handle type="target" position={Position.Left} className="node-port node-port--in" />
+      <Handle type="source" position={Position.Right} className="node-port node-port--out" />
       <div className="node-topline">
         <span className="node-kind">
           <Icon size={14} />
@@ -125,6 +133,7 @@ function App() {
   const [edges, setEdges] = useState<Edge[]>(starterEdges)
   const [query, setQuery] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>('seed-1')
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const flowRef = useRef<ReactFlowInstance<IdeaNode, Edge> | null>(null)
@@ -133,6 +142,10 @@ function App() {
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedId) ?? nodes[0],
     [nodes, selectedId],
+  )
+  const selectedEdge = useMemo(
+    () => edges.find((edge) => edge.id === selectedEdgeId) ?? null,
+    [edges, selectedEdgeId],
   )
 
   const filteredNodes = useMemo(() => {
@@ -156,6 +169,7 @@ function App() {
         setNodes(board.nodes as IdeaNode[])
         setEdges(board.edges)
         setSelectedId(board.nodes[0]?.id ?? null)
+        setSelectedEdgeId(null)
       }
       setLoaded(true)
     })
@@ -188,10 +202,25 @@ function App() {
   const onConnect = useCallback(
     (connection: Connection) =>
       setEdges((current) =>
-        addEdge({ ...connection, type: 'smoothstep', animated: false }, current),
+        addEdge(
+          {
+            ...connection,
+            type: 'smoothstep',
+          },
+          current,
+        ),
       ),
     [],
   )
+
+  const deleteSelectedEdge = useCallback(() => {
+    if (!selectedEdgeId) {
+      return
+    }
+
+    setEdges((current) => current.filter((edge) => edge.id !== selectedEdgeId))
+    setSelectedEdgeId(null)
+  }, [selectedEdgeId])
 
   const addNode = useCallback(
     (kind: IdeaKind = 'idea') => {
@@ -216,6 +245,7 @@ function App() {
 
       setNodes((current) => [...current, nextNode])
       setSelectedId(id)
+      setSelectedEdgeId(null)
     },
     [],
   )
@@ -245,13 +275,42 @@ function App() {
       current.filter((edge) => edge.source !== selectedNode.id && edge.target !== selectedNode.id),
     )
     setSelectedId(null)
+    setSelectedEdgeId(null)
   }, [selectedNode])
+
+  const linkNodesAsChain = useCallback(() => {
+    setNodes((current) =>
+      [...current]
+        .sort((first, second) => first.position.x - second.position.x || first.position.y - second.position.y)
+        .map((node, index) => ({
+          ...node,
+          position: {
+            x: 90 + index * 330,
+            y: 180,
+          },
+        })),
+    )
+
+    setEdges(() => {
+      const sortedNodes = [...nodes].sort(
+        (first, second) => first.position.x - second.position.x || first.position.y - second.position.y,
+      )
+
+      return sortedNodes.slice(0, -1).map((node, index) => ({
+        id: `chain-${node.id}-${sortedNodes[index + 1].id}`,
+        source: node.id,
+        target: sortedNodes[index + 1].id,
+        type: 'smoothstep',
+      }))
+    })
+  }, [nodes])
 
   const resetBoard = useCallback(async () => {
     await clearSavedBoard()
     setNodes(starterNodes)
     setEdges(starterEdges)
     setSelectedId('seed-1')
+    setSelectedEdgeId(null)
   }, [])
 
   const exportBoard = useCallback(() => {
@@ -276,6 +335,7 @@ function App() {
       setNodes(parsed.nodes)
       setEdges(parsed.edges)
       setSelectedId(parsed.nodes[0]?.id ?? null)
+      setSelectedEdgeId(null)
     })
   }, [])
 
@@ -314,6 +374,10 @@ function App() {
             <StickyNote size={16} />
             Action
           </button>
+          <button type="button" onClick={linkNodesAsChain} title="Arrange and connect as a chain">
+            <Link2 size={16} />
+            Chain
+          </button>
         </div>
 
         <section className="node-list" aria-label="Board nodes">
@@ -324,6 +388,7 @@ function App() {
               className={node.id === selectedNode?.id ? 'is-active' : ''}
               onClick={() => {
                 setSelectedId(node.id)
+                setSelectedEdgeId(null)
                 flowRef.current?.setCenter(node.position.x + 140, node.position.y + 90, {
                   duration: 350,
                   zoom: 1,
@@ -366,7 +431,17 @@ function App() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
-          onNodeClick={(_, node) => setSelectedId(node.id)}
+          onNodeClick={(_, node) => {
+            setSelectedId(node.id)
+            setSelectedEdgeId(null)
+          }}
+          onEdgeClick={(_, edge) => {
+            setSelectedEdgeId(edge.id)
+          }}
+          onPaneClick={() => {
+            setSelectedEdgeId(null)
+          }}
+          defaultEdgeOptions={defaultEdgeOptions}
           fitView
           minZoom={0.25}
           maxZoom={1.7}
@@ -376,7 +451,7 @@ function App() {
           <Controls />
           <MiniMap nodeStrokeWidth={3} pannable zoomable />
           <Panel position="top-center" className="canvas-hint">
-            Drag nodes, connect handles, and let the board autosave.
+            Drag nodes, connect handles, click a connection to delete it.
           </Panel>
         </ReactFlow>
       </section>
@@ -437,13 +512,28 @@ function App() {
               />
             </label>
 
-            <div className="assistant-note">
-              <Bot size={18} />
-              <p>
-                This panel is ready for an AI summarize/expand action when you want to add OpenAI
-                support.
-              </p>
-            </div>
+            {selectedEdge ? (
+              <button
+                type="button"
+                className="connection-delete-callout"
+                onClick={deleteSelectedEdge}
+                title="Delete selected connection"
+              >
+                <Trash2 size={18} />
+                <span>
+                  <strong>Connection selected</strong>
+                  Delete the link between these two notes.
+                </span>
+              </button>
+            ) : (
+              <div className="assistant-note">
+                <Bot size={18} />
+                <p>
+                  This panel is ready for an AI summarize/expand action when you want to add OpenAI
+                  support.
+                </p>
+              </div>
+            )}
 
             <button type="button" className="reset-button" onClick={resetBoard}>
               Reset sample board
