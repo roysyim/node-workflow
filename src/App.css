@@ -19,7 +19,8 @@
 
 .left-panel {
   border-width: 0 1px 0 0;
-  gap: 18px;
+  gap: 16px;
+  overflow: hidden;
 }
 
 .right-panel {
@@ -27,7 +28,6 @@
   gap: 16px;
 }
 
-.brand-lockup,
 .inspector-heading,
 .panel-footer,
 .node-topline {
@@ -35,22 +35,6 @@
   display: flex;
 }
 
-.brand-lockup {
-  gap: 12px;
-}
-
-.brand-mark {
-  align-items: center;
-  background: #20b89a;
-  border-radius: 8px;
-  color: #061412;
-  display: grid;
-  height: 36px;
-  place-items: center;
-  width: 36px;
-}
-
-.brand-lockup h1,
 .right-panel h2 {
   color: #ffffff;
   font-size: 18px;
@@ -58,7 +42,6 @@
   margin: 0;
 }
 
-.brand-lockup p,
 .inspector-heading p,
 .empty-inspector p {
   color: #94a29d;
@@ -66,9 +49,16 @@
   margin: 4px 0 0;
 }
 
-.project-switcher {
+.project-switcher,
+.search-section,
+.tools-section,
+.notes-section {
   display: grid;
   gap: 8px;
+}
+
+.notes-section {
+  min-height: 0;
 }
 
 .section-heading {
@@ -261,9 +251,9 @@ button {
 
 .node-list {
   display: flex;
-  flex: 1;
   flex-direction: column;
   gap: 6px;
+  max-height: 260px;
   min-height: 0;
   overflow: auto;
 }

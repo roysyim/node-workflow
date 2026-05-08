@@ -25,7 +25,6 @@ import {
   Link2,
   Plus,
   Search,
-  Sparkles,
   StickyNote,
   Trash2,
   Upload,
@@ -94,18 +93,25 @@ const starterEdges: Edge[] = [
     id: 'seed-1-seed-2',
     source: 'seed-1',
     target: 'seed-2',
-    type: 'smoothstep',
+    type: 'default',
   },
   {
     id: 'seed-2-seed-3',
     source: 'seed-2',
     target: 'seed-3',
-    type: 'smoothstep',
+    type: 'default',
   },
 ]
 
 const defaultEdgeOptions: Partial<Edge> = {
-  type: 'smoothstep',
+  type: 'default',
+}
+
+function softenEdges(savedEdges: Edge[]) {
+  return savedEdges.map((edge) => ({
+    ...edge,
+    type: 'default',
+  }))
 }
 
 const kindIcon = {
@@ -197,7 +203,7 @@ function App() {
     loadBoard(activeProjectId).then((board) => {
       if (board) {
         setNodes(board.nodes as IdeaNode[])
-        setEdges(board.edges)
+        setEdges(softenEdges(board.edges))
         setSelectedId(board.nodes[0]?.id ?? null)
       } else {
         setNodes(starterNodes)
@@ -244,7 +250,7 @@ function App() {
         addEdge(
           {
             ...connection,
-            type: 'smoothstep',
+            type: 'default',
           },
           current,
         ),
@@ -402,7 +408,7 @@ function App() {
         id: `chain-${node.id}-${sortedNodes[index + 1].id}`,
         source: node.id,
         target: sortedNodes[index + 1].id,
-        type: 'smoothstep',
+        type: 'default',
       }))
     })
   }, [nodes])
@@ -439,7 +445,7 @@ function App() {
     file.text().then((text) => {
       const parsed = JSON.parse(text) as { nodes: IdeaNode[]; edges: Edge[] }
       setNodes(parsed.nodes)
-      setEdges(parsed.edges)
+      setEdges(softenEdges(parsed.edges))
       setSelectedId(parsed.nodes[0]?.id ?? null)
       setSelectedEdgeId(null)
     })
@@ -448,16 +454,6 @@ function App() {
   return (
     <main className="app-shell">
       <aside className="left-panel">
-        <div className="brand-lockup">
-          <div className="brand-mark">
-            <Sparkles size={18} />
-          </div>
-          <div>
-            <h1>Idea Nodes</h1>
-            <p>Local-first workflow canvas</p>
-          </div>
-        </div>
-
         <section className="project-switcher" aria-label="Projects">
           <div className="section-heading">
             <span>Projects</span>
@@ -523,53 +519,68 @@ function App() {
           </div>
         </section>
 
-        <label className="search-box">
-          <Search size={16} />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search notes"
-          />
-        </label>
+        <section className="search-section" aria-label="Search">
+          <div className="section-heading">
+            <span>Search</span>
+          </div>
+          <label className="search-box">
+            <Search size={16} />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search notes"
+            />
+          </label>
+        </section>
 
-        <div className="quick-actions">
-          <button type="button" onClick={() => addNode('idea')} title="Add idea">
-            <Plus size={16} />
-            Idea
-          </button>
-          <button type="button" onClick={() => addNode('question')} title="Add question">
-            <FileQuestion size={16} />
-            Question
-          </button>
-          <button type="button" onClick={() => addNode('task')} title="Add action">
-            <StickyNote size={16} />
-            Action
-          </button>
-          <button type="button" onClick={linkNodesAsChain} title="Arrange and connect as a chain">
-            <Link2 size={16} />
-            Chain
-          </button>
-        </div>
-
-        <section className="node-list" aria-label="Board nodes">
-          {nodes.map((node) => (
-            <button
-              type="button"
-              key={node.id}
-              className={node.id === selectedNode?.id ? 'is-active' : ''}
-              onClick={() => {
-                setSelectedId(node.id)
-                setSelectedEdgeId(null)
-                flowRef.current?.setCenter(node.position.x + 140, node.position.y + 90, {
-                  duration: 350,
-                  zoom: 1,
-                })
-              }}
-            >
-              <span>{node.data.title}</span>
-              <small>{node.data.tags.join(', ')}</small>
+        <section className="tools-section" aria-label="Node tools">
+          <div className="section-heading">
+            <span>Nodes</span>
+          </div>
+          <div className="quick-actions">
+            <button type="button" onClick={() => addNode('idea')} title="Add idea">
+              <Plus size={16} />
+              Idea
             </button>
-          ))}
+            <button type="button" onClick={() => addNode('question')} title="Add question">
+              <FileQuestion size={16} />
+              Question
+            </button>
+            <button type="button" onClick={() => addNode('task')} title="Add action">
+              <StickyNote size={16} />
+              Action
+            </button>
+            <button type="button" onClick={linkNodesAsChain} title="Arrange and connect as a chain">
+              <Link2 size={16} />
+              Chain
+            </button>
+          </div>
+        </section>
+
+        <section className="notes-section" aria-label="Board nodes">
+          <div className="section-heading">
+            <span>Notes</span>
+          </div>
+          <div className="node-list">
+            {nodes.map((node) => (
+              <button
+                type="button"
+                key={node.id}
+                className={node.id === selectedNode?.id ? 'is-active' : ''}
+                onClick={() => {
+                  setSelectedId(node.id)
+                  setSelectedEdgeId(null)
+                  flowRef.current?.setCenter(node.position.x + 140, node.position.y + 90, {
+                    duration: 350,
+                    zoom: 1,
+                  })
+                }}
+              >
+                <span>{node.data.title}</span>
+                <small>{node.data.tags.join(', ')}</small>
+              </button>
+            ))}
+          </div>
         </section>
 
         <div className="panel-footer">
